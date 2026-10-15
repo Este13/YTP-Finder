@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+numpy
+scipy
+faster-whisper
+phonemizer
+torch
+transformers
+onnxruntime
+huggingface_hub

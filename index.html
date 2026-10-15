@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YTP Finder</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0a0b0e;
+  --surface:#12141a;
+  --raised:#1a1d26;
+  --line:#252935;
+  --line-strong:#353a4a;
+  --text:#e9ebf0;
+  --dim:#8a90a2;
+  --accent:#8b7cff;
+  --accent-soft:rgba(139,124,255,.14);
+  --rec:#ff5a52;
+  --radius:10px;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --sans:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.45 var(--sans);display:grid;grid-template-rows:auto auto 1fr;height:100vh;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{background:var(--raised);border:1px solid var(--line);padding:7px 13px;cursor:pointer;border-radius:8px;transition:background .12s,border-color .12s}
+button:hover{background:#222633;border-color:var(--line-strong)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input[type=text],select{background:var(--bg);border:1px solid var(--line);padding:8px 11px;border-radius:8px}
+input[type=text]::placeholder{color:#5b6072}
+input[type=range],input[type=checkbox]{accent-color:var(--accent)}
+label{display:inline-flex;align-items:center;gap:7px;color:var(--dim);font-size:13px;white-space:nowrap}
+.go{background:var(--accent);color:#0a0b0e;border-color:var(--accent);font-weight:650}
+.go:hover{background:#a094ff;border-color:#a094ff}
+.ghost{background:transparent}
+.num{font-family:var(--mono);font-size:12px;color:var(--text);min-width:2.6em}
+
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 18px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{font-weight:750;letter-spacing:-.02em;font-size:16px;margin-right:6px}
+.brand i{font-style:normal;color:var(--accent)}
+header input[type=text]{flex:1;min-width:220px}
+#status{color:var(--dim);font-family:var(--mono);font-size:12px;flex-basis:100%}
+#status.err{color:var(--rec)}
+#progress{height:2px;background:var(--line)}
+#progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+
+main{display:grid;grid-template-columns:1fr 340px;min-height:0}
+.left{display:flex;flex-direction:column;min-height:0}
+.searchbar{padding:16px 18px 10px;display:grid;gap:12px}
+#q{width:100%;font-size:20px;padding:13px 16px;border-radius:12px;background:var(--surface)}
+.opts{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
+.opts select{padding:6px 9px;font-size:13px}
+#voicesRow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 18px 12px;border-bottom:1px solid var(--line)}
+#results{flex:1;min-height:0;overflow:auto;padding:16px 18px;display:grid;grid-auto-rows:max-content;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;align-content:start}
+#info,.more{grid-column:1/-1}
+#info{color:var(--dim);font-family:var(--mono);font-size:12px}
+
+.chip{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:999px;font-size:13px;background:var(--surface)}
+.chip .n{color:var(--dim);font-family:var(--mono);font-size:11px}
+.chip.on{background:var(--accent-soft);border-color:var(--accent)}
+.chip.zero{opacity:.45}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--c,var(--dim));flex:none}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden;transition:border-color .12s}
+.card.playing{border-color:var(--accent)}
+.screen{position:relative;background:#000;aspect-ratio:16/9}
+.screen video{width:100%;height:100%;display:block;object-fit:contain}
+.screen .cap{position:absolute;left:8px;right:8px;bottom:10px;text-align:center;font-weight:750;font-size:18px;color:#fff;text-shadow:0 0 4px #000,0 1px 2px #000,0 0 12px rgba(0,0,0,.8);pointer-events:none}
+.screen .who{position:absolute;top:8px;left:8px;display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;background:rgba(10,11,14,.78);font-size:12px;backdrop-filter:blur(6px)}
+.ctx{padding:10px 12px 0;color:var(--dim);font-size:13px;min-height:2.7em}
+.ctx b{color:var(--text);font-weight:650}
+.meta{display:flex;justify-content:space-between;gap:8px;padding:6px 12px 0;font-family:var(--mono);font-size:11px;color:var(--dim)}
+.meta span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta span:last-child{flex:none;white-space:nowrap}
+.meta .low{color:var(--rec)}
+.btns{display:flex;gap:6px;padding:10px 12px 12px}
+.btns button{flex:1;padding:6px;font-size:13px}
+
+aside{border-left:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;min-height:0}
+aside h2{margin:0;padding:14px 16px;font-size:14px;font-weight:650;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline}
+#basketInfo{color:var(--dim);font-size:12px;font-weight:400;font-family:var(--mono)}
+#basket{flex:1;overflow:auto;margin:0;padding:10px;list-style:none}
+#basket li{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:var(--bg)}
+#basket .t{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#basket .m{grid-column:1;font-family:var(--mono);font-size:11px;color:var(--dim)}
+#basket .a{grid-row:1/3;grid-column:2;display:flex;gap:3px;align-items:center}
+#basket .a button{padding:3px 8px;font-size:12px}
+.empty{color:var(--dim);padding:14px;font-size:13px}
+.dock{padding:12px;border-top:1px solid var(--line);display:grid;gap:8px}
+.dock .row{display:flex;gap:8px}
+.dock .row>*{flex:1;min-width:0}
+#seq{width:100%;background:#000;aspect-ratio:16/9;display:block;border-radius:8px}
+
+dialog{background:var(--surface);color:var(--text);border:1px solid var(--line-strong);border-radius:14px;padding:0;width:min(560px,calc(100vw - 32px));max-height:86vh}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+.dlg{display:flex;flex-direction:column;max-height:86vh}
+.dlg h2{margin:0;padding:16px 18px;font-size:15px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+.dlg p{margin:0;padding:12px 18px 0;color:var(--dim);font-size:13px}
+#voiceList{list-style:none;margin:0;padding:12px 18px;overflow:auto;display:grid;gap:8px}
+#voiceList li{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center}
+#voiceList input{width:100%;padding:6px 9px}
+#voiceList .s{font-family:var(--mono);font-size:11px;color:var(--dim);white-space:nowrap}
+.dlg footer{padding:12px 18px 16px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.dlg footer label{flex:1}
+.dlg footer input[type=range]{flex:1;min-width:90px}
+
+@media (max-width:900px){
+  main{grid-template-columns:1fr}
+  aside{border-left:0;border-top:1px solid var(--line);max-height:50vh}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="brand">YTP<i>·</i>Finder</span>
+  <input type="text" id="path" placeholder="Video folder, e.g. D:\videos" spellcheck="false">
+  <select id="model" title="Whisper model">
+    <option value="large-v3">large-v3 (accurate)</option>
+    <option value="medium">medium</option>
+    <option value="small">small (fast)</option>
+    <option value="base">base</option>
+  </select>
+  <select id="lang" title="Spoken language">
+    <option value="fr">French</option>
+    <option value="en">English</option>
+    <option value="auto">Auto</option>
+    <option value="es">Español</option>
+    <option value="de">Deutsch</option>
+    <option value="it">Italiano</option>
+  </select>
+  <button class="go" id="indexBtn">Index folder</button>
+  <span id="status">No video indexed</span>
+</header>
+<div id="progress"><i></i></div>
+
+<main>
+  <section class="left">
+    <div class="searchbar">
+      <input type="text" id="q" placeholder="A word, a syllable, or IPA: “banana”, “sa”, “bɔ̃ʒuʁ”" spellcheck="false" autocomplete="off">
+      <div class="opts">
+        <select id="mode">
+          <option value="auto">Auto (sounds + whole words)</option>
+          <option value="text">Text only</option>
+          <option value="ipa">Phonetic (IPA)</option>
+        </select>
+        <select id="sort" title="Result order">
+          <option value="conf">Most reliable first</option>
+          <option value="time">Chronological</option>
+        </select>
+        <label><input type="checkbox" id="whole"> Whole word</label>
+        <label title="Time added before and after the clip">Padding <input type="range" id="pad" min="0" max="250" value="30" step="5"> <span class="num" id="padv">30 ms</span></label>
+        <label title="Hide clips whose audio alignment is doubtful">Min reliability <input type="range" id="conf" min="0" max="90" value="10" step="5"> <span class="num" id="confv">10 %</span></label>
+        <label><input type="checkbox" id="hover" checked> Play on hover</label>
+      </div>
+    </div>
+    <div id="voicesRow"></div>
+    <div id="results"><div id="info">Index a folder, then type what you are looking for.</div></div>
+  </section>
+
+  <aside>
+    <h2><span>Basket</span><span id="basketInfo"></span></h2>
+    <ul id="basket"></ul>
+    <div class="dock">
+      <video id="seq" controls playsinline></video>
+      <div class="row">
+        <button id="seqPlay">Play sequence</button>
+        <button id="clear">Clear</button>
+      </div>
+      <div class="row">
+        <select id="fmt"><option value="mp4">MP4 video</option><option value="wav">WAV audio</option></select>
+        <select id="expMode"><option value="concat">Single file</option><option value="clips">One file per clip</option></select>
+      </div>
+      <button class="go" id="export">Export basket</button>
+    </div>
+  </aside>
+</main>
+
+<dialog id="voices">
+  <div class="dlg">
+    <h2><span>Detected voices</span><button class="ghost" id="voicesClose">Close</button></h2>
+    <p>Listen to each voice and give it the character's name. Giving two voices the same name merges them.</p>
+    <ul id="voiceList"></ul>
+    <footer>
+      <label title="Left: more distinct voices. Right: voices grouped more broadly.">Grouping <input type="range" id="thr" min="0.5" max="0.95" step="0.05"> <span class="num" id="thrv"></span></label>
+      <button id="recluster">Detect again</button>
+    </footer>
+  </div>
+</dialog>
+<audio id="voicePlayer" preload="none"></audio>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const tc = t => { const m = Math.floor(t / 60), s = (t % 60).toFixed(2).padStart(5, "0"); return `${String(m).padStart(2, "0")}:${s}`; };
+const once = (el, ev) => new Promise(r => el.addEventListener(ev, r, {once: true}));
+const post = body => ({method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+async function api(url, opt) {
+  const r = await fetch(url, opt);
+  if (!r.ok) throw new Error((await r.text()).slice(0, 400));
+  return r.json();
+}
+
+let hits = [], shown = 0, basket = [], raf = 0, current = null, seqToken = 0;
+let speakers = [], facets = {}, voiceToken = 0;
+const spkSel = new Set();
+const PAGE = 60;
+const COLORS = ["#8b7cff", "#ffb454", "#4fd6a8", "#ff7a90", "#5cb8ff", "#e58cff", "#c8d65a", "#ff9466", "#7fe0e8", "#b0a4ff"];
+const color = id => COLORS[(id - 1 + COLORS.length * 99) % COLORS.length];
+const spkName = id => speakers.find(s => s.id === id)?.name || "Unknown voice";
+
+async function refreshStatus() {
+  const s = await api("/api/status");
+  $("#progress i").style.width = s.total ? (100 * s.done / s.total) + "%" : "0";
+  const st = $("#status");
+  st.className = s.errors.length ? "err" : "";
+  if (s.running) st.textContent = `Indexing ${s.done}/${s.total} — ${s.current}` + (s.stage ? ` · ${s.stage}` : "");
+  else if (s.errors.length) st.textContent = `${s.errors.length} error(s): ${s.errors[0]}`;
+  else st.textContent = s.videos ? `${s.videos} video(s) · ${s.words} words indexed` + (s.ipa_ok ? "" : " · phonetics unavailable (espeak-ng)") : "No video indexed";
+  return s;
+}
+async function pollStatus() {
+  let s;
+  do { s = await refreshStatus(); if (s.running) await new Promise(r => setTimeout(r, 800)); } while (s.running);
+  await loadSpeakers();
+  search();
+}
+$("#indexBtn").onclick = async () => {
+  try {
+    await api("/api/index", post({path: $("#path").value.trim().replace(/^"|"$/g, ""), model: $("#model").value, lang: $("#lang").value}));
+    pollStatus();
+  } catch (e) { $("#status").className = "err"; $("#status").textContent = e.message; }
+};
+
+function setSpeakers(r) {
+  speakers = r.speakers;
+  $("#thr").value = r.thr;
+  $("#thrv").textContent = (+r.thr).toFixed(2);
+  for (const id of [...spkSel]) if (!speakers.some(s => s.id === id)) spkSel.delete(id);
+  drawChips();
+  drawVoiceList();
+}
+async function loadSpeakers() { setSpeakers(await api("/api/speakers")); }
+
+function drawChips() {
+  const row = $("#voicesRow");
+  row.innerHTML = "";
+  if (!speakers.length) { row.hidden = true; return; }
+  row.hidden = false;
+  const chip = (label, on, onclick, id) => {
+    const b = document.createElement("button");
+    const n = id ? (facets[id] || 0) : null;
+    b.className = "chip" + (on ? " on" : "") + (id && hits.length && !n ? " zero" : "");
+    b.innerHTML = (id ? `<span class="dot" style="--c:${color(id)}"></span>` : "") + esc(label) + (id && $("#q").value.trim() ? `<span class="n">${n}</span>` : "");
+    b.onclick = onclick;
+    row.appendChild(b);
+  };
+  chip("All voices", !spkSel.size, () => { spkSel.clear(); search(); });
+  for (const s of speakers) chip(s.name, spkSel.has(s.id), () => { spkSel.has(s.id) ? spkSel.delete(s.id) : spkSel.add(s.id); search(); }, s.id);
+  const m = document.createElement("button");
+  m.className = "chip ghost";
+  m.textContent = "Name voices…";
+  m.onclick = () => $("#voices").showModal();
+  row.appendChild(m);
+}
+
+function drawVoiceList() {
+  const ul = $("#voiceList");
+  ul.innerHTML = "";
+  for (const s of speakers) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="dot" style="--c:${color(s.id)}"></span><input type="text" value="${esc(s.name)}" spellcheck="false"><span class="s">${s.turns} phrases · ${Math.round(s.dur)} s</span><button>▶ Listen</button>`;
+    const inp = li.querySelector("input");
+    let k = 0;
+    li.querySelector("button").onclick = () => { if (s.samples.length) playVoice(s.samples[k++ % s.samples.length]); };
+    inp.onchange = async () => {
+      const name = inp.value.trim();
+      if (!name || name === s.name) { inp.value = s.name; return; }
+      try { setSpeakers(await api("/api/speakers/rename", post({id: s.id, name}))); search(); }
+      catch (e) { inp.value = s.name; }
+    };
+    inp.onkeydown = e => { if (e.key === "Enter") inp.blur(); };
+    ul.appendChild(li);
+  }
+}
+
+async function playVoice(c) {
+  const a = $("#voicePlayer"), tok = ++voiceToken;
+  stopCurrent();
+  if (a.dataset.vid !== c.vid) { a.dataset.vid = c.vid; a.src = "/media/" + c.vid; await once(a, "loadedmetadata"); }
+  if (tok !== voiceToken) return;
+  a.currentTime = c.start;
+  a.play();
+  const t = () => { if (tok !== voiceToken || a.paused || a.currentTime >= Math.min(c.end, c.start + 6)) { if (tok === voiceToken) a.pause(); } else requestAnimationFrame(t); };
+  requestAnimationFrame(t);
+}
+$("#voicesClose").onclick = () => $("#voices").close();
+$("#voices").addEventListener("close", () => { voiceToken++; $("#voicePlayer").pause(); });
+$("#thr").oninput = e => { $("#thrv").textContent = (+e.target.value).toFixed(2); };
+$("#recluster").onclick = async () => {
+  const b = $("#recluster");
+  b.disabled = true;
+  try { setSpeakers(await api("/api/speakers/recluster", post({thr: +$("#thr").value}))); search(); }
+  catch (e) { $("#status").className = "err"; $("#status").textContent = e.message; }
+  b.disabled = false;
+};
+
+let timer = 0;
+function scheduleSearch() { clearTimeout(timer); timer = setTimeout(search, 250); }
+async function search() {
+  const q = $("#q").value.trim();
+  if (!q) { hits = []; facets = {}; drawChips(); $("#results").innerHTML = '<div id="info">Type a word, a syllable or IPA.</div>'; return; }
+  const p = new URLSearchParams({q, mode: $("#mode").value, whole: $("#whole").checked, pad: $("#pad").value, sort: $("#sort").value, minconf: $("#conf").value / 100, spk: [...spkSel].join(","), lang: $("#lang").value === "auto" ? "fr" : $("#lang").value});
+  try {
+    const r = await api("/api/search?" + p);
+    hits = r.hits; shown = 0; facets = r.facets;
+    drawChips();
+    $("#results").innerHTML = "";
+    const info = document.createElement("div");
+    info.id = "info";
+    info.textContent = `${r.total} clip(s)` + (r.ipa ? ` · phonetic query: /${r.ipa}/` : "");
+    $("#results").appendChild(info);
+    renderMore();
+  } catch (e) { $("#results").innerHTML = `<div id="info" style="color:var(--rec)">${esc(e.message)}</div>`; }
+}
+
+const io = new IntersectionObserver(entries => {
+  for (const en of entries) {
+    if (!en.isIntersecting) continue;
+    const v = en.target;
+    io.unobserve(v);
+    v.preload = "metadata";
+    v.src = "/media/" + v.dataset.vid;
+    v.addEventListener("loadedmetadata", () => { v.currentTime = parseFloat(v.dataset.start); }, {once: true});
+  }
+}, {rootMargin: "300px"});
+
+function renderMore() {
+  const box = $("#results");
+  box.querySelector(".more")?.remove();
+  for (const h of hits.slice(shown, shown + PAGE)) box.appendChild(card(h));
+  shown = Math.min(hits.length, shown + PAGE);
+  if (shown < hits.length) {
+    const b = document.createElement("button");
+    b.className = "more";
+    b.textContent = `Show more (${hits.length - shown})`;
+    b.onclick = renderMore;
+    box.appendChild(b);
+  }
+}
+
+function card(h) {
+  const d = document.createElement("div");
+  d.className = "card";
+  const pct = Math.round(h.conf * 100);
+  d.innerHTML = `
+    <div class="screen"><video playsinline data-vid="${h.vid}" data-start="${h.start}"></video><div class="cap">${esc(h.match)}</div>${h.spk ? `<div class="who"><span class="dot" style="--c:${color(h.spk)}"></span>${esc(spkName(h.spk))}</div>` : ""}</div>
+    <div class="ctx">${esc(h.before)} <b>${esc(h.match)}</b> ${esc(h.after)}</div>
+    <div class="meta"><span title="${esc(h.name)}">${esc(h.name)}</span><span>${tc(h.start)} → ${tc(h.end)}</span></div>
+    <div class="meta"><span>${h.kind}</span><span class="${pct < 25 ? "low" : ""}" title="Audio alignment reliability">${pct} %</span></div>
+    <div class="btns"><button data-a="play">Play</button><button data-a="add">Add to basket</button><button data-a="dl">Export</button></div>`;
+  const v = d.querySelector("video");
+  io.observe(v);
+  d.querySelector('[data-a="play"]').onclick = () => playClip(d, v, h);
+  d.querySelector('[data-a="add"]').onclick = () => { basket.push({vid: h.vid, start: h.start, end: h.end, label: h.match, name: h.name}); drawBasket(); };
+  d.querySelector('[data-a="dl"]').onclick = () => exportClips([{vid: h.vid, start: h.start, end: h.end, label: h.match}], "clips");
+  d.addEventListener("mouseenter", () => { if ($("#hover").checked) playClip(d, v, h); });
+  d.addEventListener("mouseleave", () => { if ($("#hover").checked) stopCurrent(); });
+  return d;
+}
+
+function stopCurrent() {
+  cancelAnimationFrame(raf);
+  if (current) { current.v.pause(); current.d.classList.remove("playing"); current = null; }
+}
+async function playClip(d, v, h) {
+  stopCurrent();
+  seqToken++;
+  current = {d, v};
+  if (!v.src) { v.src = "/media/" + h.vid; }
+  if (v.readyState < 1) await once(v, "loadedmetadata");
+  if (current?.v !== v) return;
+  if (Math.abs(v.currentTime - h.start) > 0.005) { v.currentTime = h.start; await once(v, "seeked"); }
+  if (current?.v !== v) return;
+  d.classList.add("playing");
+  v.play();
+  const tick = () => {
+    if (current?.v !== v) return;
+    if (v.paused || v.currentTime >= h.end) { stopCurrent(); v.currentTime = h.start; return; }
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+}
+
+function drawBasket() {
+  const ul = $("#basket");
+  ul.innerHTML = "";
+  if (!basket.length) ul.innerHTML = '<div class="empty">Add clips with “Add to basket” to chain them.</div>';
+  basket.forEach((c, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="t">${esc(c.label)}</span><span class="m">${tc(c.start)} → ${tc(c.end)} · ${(c.end - c.start).toFixed(2)} s</span>
+      <span class="a"><button title="Move up">▲</button><button title="Move down">▼</button><button title="Remove">✕</button></span>`;
+    const [up, down, del] = li.querySelectorAll("button");
+    up.onclick = () => { if (i > 0) { [basket[i - 1], basket[i]] = [basket[i], basket[i - 1]]; drawBasket(); } };
+    down.onclick = () => { if (i < basket.length - 1) { [basket[i + 1], basket[i]] = [basket[i], basket[i + 1]]; drawBasket(); } };
+    del.onclick = () => { basket.splice(i, 1); drawBasket(); };
+    ul.appendChild(li);
+  });
+  const total = basket.reduce((a, c) => a + c.end - c.start, 0);
+  $("#basketInfo").textContent = basket.length ? `${basket.length} clips · ${total.toFixed(1)} s` : "";
+}
+$("#clear").onclick = () => { basket = []; seqToken++; drawBasket(); };
+
+async function playSeq() {
+  stopCurrent();
+  const tok = ++seqToken, v = $("#seq");
+  for (const c of basket) {
+    if (tok !== seqToken) return;
+    if (v.dataset.vid !== c.vid) { v.dataset.vid = c.vid; v.src = "/media/" + c.vid; await once(v, "loadedmetadata"); }
+    if (Math.abs(v.currentTime - c.start) > 0.01) { v.currentTime = c.start; await once(v, "seeked"); }
+    v.play();
+    await new Promise(res => {
+      const t = () => { if (tok !== seqToken || v.paused || v.currentTime >= c.end) { v.pause(); res(); } else requestAnimationFrame(t); };
+      t();
+    });
+  }
+}
+$("#seqPlay").onclick = playSeq;
+
+async function exportClips(clips, mode) {
+  const st = $("#status");
+  st.className = "";
+  st.textContent = "Exporting…";
+  try {
+    const r = await api("/api/export", post({clips, mode, fmt: $("#fmt").value, name: $("#q").value || "ytp"}));
+    st.textContent = "Exported: " + r.file + " (exports/ folder)";
+    const a = document.createElement("a");
+    a.href = "/api/download/" + encodeURIComponent(r.file);
+    a.click();
+  } catch (e) { st.className = "err"; st.textContent = e.message; }
+}
+$("#export").onclick = () => { if (basket.length) exportClips(basket, $("#expMode").value); };
+
+$("#q").addEventListener("input", scheduleSearch);
+$("#mode").onchange = search;
+$("#sort").onchange = search;
+$("#whole").onchange = search;
+$("#pad").oninput = e => { $("#padv").textContent = e.target.value + " ms"; scheduleSearch(); };
+$("#conf").oninput = e => { $("#confv").textContent = e.target.value + " %"; scheduleSearch(); };
+
+drawBasket();
+refreshStatus().then(s => { if (s.running) pollStatus(); });
+loadSpeakers();
+</script>
+</body>
+</html>
